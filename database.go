@@ -29,11 +29,16 @@ type Database struct {
 	typeTranslation bool
 }
 
+// sqlOpen is the seam onto database/sql.Open, overridable in tests to exercise
+// the open-error branch (modernc's Open validates lazily, so a live driver
+// almost never fails here).
+var sqlOpen = sql.Open
+
 // Open opens (creating if necessary) the SQLite database at path and returns a
 // *Database, mirroring SQLite3::Database.new / .open. Use ":memory:" for a
 // transient in-memory database.
 func Open(path string) (*Database, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := sqlOpen("sqlite", path)
 	if err != nil {
 		return nil, wrapError(err)
 	}

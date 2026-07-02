@@ -83,12 +83,11 @@ func (s *Statement) BindParam(key any, val Value) {
 
 // BindParams binds a batch of parameters (SQLite3::Statement#bind_params). A
 // positional slice binds 1..N in order; pass named parameters individually with
-// BindParam. Passing nil clears nothing and binds nothing.
-func (s *Statement) BindParams(binds []Value) error {
+// BindParam. Passing nil binds nothing.
+func (s *Statement) BindParams(binds []Value) {
 	for i, b := range binds {
 		s.posBinds[i+1] = b
 	}
-	return nil
 }
 
 // buildArgs assembles the driver argument list from the accumulated binds. It
@@ -222,9 +221,20 @@ func (s *Statement) Types() ([]string, error) {
 		return nil, wrapError(err)
 	}
 	defer rows.Close()
-	cts, err := rows.ColumnTypes()
+	names, err := columnTypeNames(rows)
 	if err != nil {
 		return nil, wrapError(err)
+	}
+	return names, nil
+}
+
+// columnTypeNames reads the declared SQL type name of each result column. It is
+// a var so tests can substitute a version that surfaces the (with modernc,
+// unreachable) ColumnTypes failure, covering Types' error branch.
+var columnTypeNames = func(rows *sql.Rows) ([]string, error) {
+	cts, err := rows.ColumnTypes()
+	if err != nil {
+		return nil, err
 	}
 	out := make([]string, len(cts))
 	for i, ct := range cts {

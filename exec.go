@@ -157,10 +157,7 @@ func (d *Database) Query(query string, binds []Value) (*Statement, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := st.BindParams(binds); err != nil {
-		_ = st.Close()
-		return nil, err
-	}
+	st.BindParams(binds)
 	if err := st.exec(); err != nil {
 		_ = st.Close()
 		return nil, err
@@ -196,8 +193,10 @@ func (d *Database) GetFirstValue(query string, binds []Value) (Value, error) {
 
 // scanRows drains a *sql.Rows into positional []Value rows plus the column
 // names. Values arrive from modernc as int64 / float64 / string / []byte / nil —
-// exactly the gem's SQLite<->Ruby mapping — so they pass through unchanged.
-func scanRows(rows *sql.Rows) ([]Row, []string, error) {
+// exactly the gem's SQLite<->Ruby mapping — so they pass through unchanged. It
+// is a var so tests can substitute a version that surfaces the (rare with
+// modernc) Columns / Scan / Err failures, exercising the callers' error paths.
+var scanRows = func(rows *sql.Rows) ([]Row, []string, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, nil, err
@@ -209,7 +208,7 @@ func scanRows(rows *sql.Rows) ([]Row, []string, error) {
 		for i := range holders {
 			ptrs[i] = &holders[i]
 		}
-		if err := rows.Scan(ptrs...); err != nil {
+		if err := scanInto(rows, ptrs); err != nil {
 			return nil, nil, err
 		}
 		row := make(Row, len(cols))
@@ -222,4 +221,11 @@ func scanRows(rows *sql.Rows) ([]Row, []string, error) {
 		return nil, nil, err
 	}
 	return out, cols, nil
+}
+
+// scanInto copies one result row into the destination pointers. It is a var so a
+// direct unit test can exercise the (with a live modernc row, unreachable-per-
+// iteration) *sql.Rows.Scan failure by scanning a closed row.
+var scanInto = func(rows *sql.Rows, ptrs []any) error {
+	return rows.Scan(ptrs...)
 }

@@ -5,6 +5,7 @@
 package sqlite3
 
 import (
+	"database/sql"
 	"reflect"
 	"testing"
 )
@@ -23,9 +24,7 @@ func TestPrepareExecute(t *testing.T) {
 	if st.Closed() {
 		t.Error("fresh statement reports closed")
 	}
-	if err := st.BindParams([]Value{1, "x"}); err != nil {
-		t.Fatal(err)
-	}
+	st.BindParams([]Value{1, "x"})
 	rows, err := st.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +98,27 @@ func TestStatementColumnsAndTypes(t *testing.T) {
 	}
 	if len(types) != 2 || types[0] != "INTEGER" || types[1] != "TEXT" {
 		t.Errorf("types = %v, want [INTEGER TEXT]", types)
+	}
+}
+
+func TestStatementTypesColumnTypesError(t *testing.T) {
+	// Override the columnTypeNames seam so the ColumnTypes-error branch of Types
+	// runs against the live backend (modernc never fails there naturally).
+	db := openMem(t)
+	mustExec(t, db, "CREATE TABLE t(a INTEGER)")
+	mustExec(t, db, "INSERT INTO t VALUES(1)")
+	st, err := db.Prepare("SELECT a FROM t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	orig := columnTypeNames
+	columnTypeNames = func(*sql.Rows) ([]string, error) {
+		return nil, errMockScan
+	}
+	defer func() { columnTypeNames = orig }()
+	if _, err := st.Types(); err == nil {
+		t.Fatal("expected ColumnTypes error")
 	}
 }
 
@@ -437,9 +457,16 @@ func TestDatabaseQueryPrepareError(t *testing.T) {
 }
 
 func TestDatabaseQueryExecError(t *testing.T) {
+	// modernc validates at Prepare, so to hit Query's post-prepare exec-error
+	// branch we override the scanRows seam to fail during exec.
 	db := openMem(t)
-	// Prepare succeeds but the table is missing -> exec fails inside Query.
-	if _, err := db.Query("SELECT * FROM nope", nil); err == nil {
+	mustExec(t, db, "CREATE TABLE t(x)")
+	orig := scanRows
+	scanRows = func(*sql.Rows) ([]Row, []string, error) {
+		return nil, nil, errMockScan
+	}
+	defer func() { scanRows = orig }()
+	if _, err := db.Query("SELECT x FROM t", nil); err == nil {
 		t.Fatal("expected exec error")
 	}
 }
