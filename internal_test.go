@@ -13,27 +13,27 @@ import (
 
 func TestIsQuery(t *testing.T) {
 	cases := map[string]bool{
-		"SELECT 1":                       true,
-		"  select * from t":              true,
-		"\n\tSELECT x":                   true,
-		"(SELECT 1)":                     true,
-		"VALUES (1),(2)":                 true,
-		"WITH c AS (SELECT 1) SELECT *":  true,
-		"EXPLAIN SELECT 1":               true,
-		"PRAGMA table_info(t)":           true,  // bare pragma reads
-		"PRAGMA busy_timeout = 5":        false, // assigning pragma sets
-		"INSERT INTO t VALUES(1)":        false,
-		"UPDATE t SET x=1":               false,
-		"DELETE FROM t":                  false,
-		"CREATE TABLE t(x)":              false,
-		"DROP TABLE t":                   false,
-		"-- a comment\nSELECT 1":         true,
-		"/* block */ SELECT 1":           true,
-		"-- only a comment":              false, // no statement after comment
-		"/* unterminated":                false, // no closing */
-		"-- c1\n-- c2\nINSERT INTO t V":  false,
-		"/* c */ /* d */ INSERT":         false,
-		"":                               false,
+		"SELECT 1":                      true,
+		"  select * from t":             true,
+		"\n\tSELECT x":                  true,
+		"(SELECT 1)":                    true,
+		"VALUES (1),(2)":                true,
+		"WITH c AS (SELECT 1) SELECT *": true,
+		"EXPLAIN SELECT 1":              true,
+		"PRAGMA table_info(t)":          true,  // bare pragma reads
+		"PRAGMA busy_timeout = 5":       false, // assigning pragma sets
+		"INSERT INTO t VALUES(1)":       false,
+		"UPDATE t SET x=1":              false,
+		"DELETE FROM t":                 false,
+		"CREATE TABLE t(x)":             false,
+		"DROP TABLE t":                  false,
+		"-- a comment\nSELECT 1":        true,
+		"/* block */ SELECT 1":          true,
+		"-- only a comment":             false, // no statement after comment
+		"/* unterminated":               false, // no closing */
+		"-- c1\n-- c2\nINSERT INTO t V": false,
+		"/* c */ /* d */ INSERT":        false,
+		"":                              false,
 	}
 	for sql, want := range cases {
 		if got := isQuery(sql); got != want {

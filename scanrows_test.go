@@ -44,10 +44,10 @@ func (c mockConn) Begin() (driver.Tx, error)           { return nil, errors.New(
 
 type mockStmt struct{ mode mockMode }
 
-func (s mockStmt) Close() error                                    { return nil }
-func (s mockStmt) NumInput() int                                   { return 0 }
-func (s mockStmt) Exec([]driver.Value) (driver.Result, error)      { return nil, errors.New("no exec") }
-func (s mockStmt) Query(_ []driver.Value) (driver.Rows, error)     { return &mockRows{mode: s.mode}, nil }
+func (s mockStmt) Close() error                                { return nil }
+func (s mockStmt) NumInput() int                               { return 0 }
+func (s mockStmt) Exec([]driver.Value) (driver.Result, error)  { return nil, errors.New("no exec") }
+func (s mockStmt) Query(_ []driver.Value) (driver.Rows, error) { return &mockRows{mode: s.mode}, nil }
 
 type mockRows struct {
 	mode  mockMode

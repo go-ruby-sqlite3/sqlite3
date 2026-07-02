@@ -196,7 +196,7 @@ func TestStatementBindParamPositional(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	st.BindParam(1, 100)     // int index
+	st.BindParam(1, 100)        // int index
 	st.BindParam(int64(2), "z") // int64 index
 	if _, err := st.Execute(); err != nil {
 		t.Fatal(err)
@@ -215,9 +215,9 @@ func TestStatementBindParamNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	st.BindParam(":a", 1)   // colon sigil
-	st.BindParam("$b", 2)   // dollar sigil
-	st.BindParam("@c", 3)   // at sigil
+	st.BindParam(":a", 1) // colon sigil
+	st.BindParam("$b", 2) // dollar sigil
+	st.BindParam("@c", 3) // at sigil
 	if _, err := st.Execute(); err != nil {
 		t.Fatal(err)
 	}
