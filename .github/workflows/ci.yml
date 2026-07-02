@@ -11,11 +11,13 @@ permissions:
 
 # Track the latest stable Go (org convention). go.mod floor is 1.26.4.
 jobs:
-  # Build, vet, race-test, and enforce 100% coverage. The differential-vs-Ruby
-  # oracle tests skip themselves on Windows and where ruby is absent; ruby is
-  # installed on the ubuntu/macos lanes so the MRI oracle runs there. The
-  # deterministic, ruby-free tests alone keep coverage at 100% so the no-ruby
-  # lanes still pass the gate.
+  # Build, vet, race-test, and enforce 100% coverage. The differential-vs-gem
+  # oracle tests skip themselves on Windows, where ruby is absent, and unless the
+  # `sqlite3` gem and RUBY_VERSION >= "4.0" are present; ruby is installed on the
+  # ubuntu/macos lanes so the MRI oracle runs there when the gem is available. The
+  # deterministic, ruby-free tests alone keep coverage at 100% so the no-oracle
+  # lanes still pass the gate. This lane keeps the default toolchain (CGO on) so
+  # -race works; the backend (modernc.org/sqlite) is pure-Go either way.
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -32,6 +34,8 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
+      - if: runner.os != 'Windows'
+        run: gem install sqlite3 --no-document || true
       - run: go version
       - run: go vet ./...
       - run: go build ./...
@@ -40,18 +44,22 @@ jobs:
         run: |
           COVERPKG=$(go list ./... | paste -sd, -)
           go test -race -coverpkg="$COVERPKG" -coverprofile=cover.out ./...
-          go tool cover -func=cover.out | tail -n 25
+          go tool cover -func=cover.out | tail -n 40
           cov=$(go tool cover -func=cover.out | tail -1 | awk '{print $3}' | tr -d '%')
           echo "coverage: ${cov}%"
           awk -v t="$cov" 'BEGIN { exit !(t+0 >= 100.0) }' || {
             echo "::error::coverage ${cov}% < 100%"; exit 1; }
 
-  # Validate the library on the six supported 64-bit targets. amd64/arm64 run
-  # natively; the rest run the suite under qemu-user. The oracle tests skip under
-  # qemu (no target-arch ruby), so this checks the emitter / loader themselves.
+  # Validate the library on the six supported 64-bit targets with CGO_ENABLED=0,
+  # proving the whole stack (this package + modernc.org/sqlite) links pure-Go.
+  # amd64/arm64 run natively; the rest run the suite under qemu-user. The oracle
+  # tests skip under qemu (no target-arch ruby/gem), so this checks the binding
+  # and the pure-Go SQLite engine themselves.
   arch-native:
-    name: arch ${{ matrix.label }}
+    name: arch ${{ matrix.label }} (CGO=0)
     runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: "0"
     strategy:
       fail-fast: false
       matrix:
@@ -63,11 +71,13 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-      - run: go env GOARCH && go test ./...
+      - run: go env GOARCH CGO_ENABLED && go test ./...
 
   arch-qemu:
-    name: arch ${{ matrix.goarch }} (qemu)
+    name: arch ${{ matrix.goarch }} (qemu, CGO=0)
     runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "0"
     strategy:
       fail-fast: false
       matrix:
