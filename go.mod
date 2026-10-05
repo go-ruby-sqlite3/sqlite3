@@ -1,6 +1,6 @@
 module github.com/go-ruby-sqlite3/sqlite3
 
-go 1.26.4
+go 1.27.1
 
 require modernc.org/sqlite v1.60.1
 
